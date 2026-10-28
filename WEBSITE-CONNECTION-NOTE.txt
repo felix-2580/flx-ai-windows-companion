@@ -1,0 +1,2 @@
+The hosted page must call POST http://127.0.0.1:8765/command for Windows commands.
+The current website code in the prior package already does this. If it still shows old demo text, clear cache with Ctrl+F5 and verify Render deployed the commit containing the updated templates/index.html.

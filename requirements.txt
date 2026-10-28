@@ -1,0 +1,7 @@
+Flask>=3.0,<4
+flask-cors>=4.0,<6
+pycaw>=20230407
+comtypes>=1.2
+screen-brightness-control>=0.23
+PyAutoGUI>=0.9.54
+pyinstaller>=6.0
