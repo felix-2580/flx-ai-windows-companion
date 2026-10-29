@@ -4,12 +4,8 @@ on:
   push:
     paths:
       - 'companion.py'
-      - 'requirements.txt'
+      - 'companion-requirements.txt'
       - '.github/workflows/build-windows-exe.yml'
-
-permissions:
-  contents: read
-
 jobs:
   build:
     runs-on: windows-latest
@@ -17,14 +13,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
       - name: Install dependencies
-        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+        run: pip install -r companion-requirements.txt
       - name: Build executable
-        run: python -m PyInstaller --noconfirm --clean --onefile --console --name FLXAI-Companion companion.py
-      - name: Upload executable artifact
-        uses: actions/upload-artifact@v4
+        run: pyinstaller --noconfirm --clean --onefile --name FLXAI-Companion --collect-all pycaw --collect-all comtypes companion.py
+      - uses: actions/upload-artifact@v4
         with:
           name: FLXAI-Companion-Windows
           path: dist/FLXAI-Companion.exe
-          if-no-files-found: error
