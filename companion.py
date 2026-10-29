@@ -31,15 +31,56 @@ def folder_target(name):
         except Exception: return f"Couldn't open {name}.","error"
     return launch(t,name.title())
 def volume(c):
+    """Control Windows master volume across older and newer Pycaw APIs."""
     try:
         from ctypes import cast, POINTER
         from comtypes import CLSCTX_ALL
         from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-        dev=AudioUtilities.GetSpeakers(); iface=dev.Activate(IAudioEndpointVolume._iid_,CLSCTX_ALL,None); vol=cast(iface,POINTER(IAudioEndpointVolume))
+
+        device = AudioUtilities.GetSpeakers()
+        volume_interface = None
+
+        # Pycaw versions expose the endpoint under different attribute names.
+        for attr in ("EndpointVolume", "endpoint_volume", "_volume"):
+            try:
+                candidate = getattr(device, attr, None)
+                if candidate is not None:
+                    volume_interface = candidate
+                    break
+            except Exception:
+                pass
+
+        # Older Pycaw versions return a COM device with Activate().
+        if volume_interface is None:
+            com_device = getattr(device, "_dev", None) or getattr(device, "device", None)
+            if com_device is None and hasattr(device, "Activate"):
+                com_device = device
+            if com_device is not None and hasattr(com_device, "Activate"):
+                interface = com_device.Activate(
+                    IAudioEndpointVolume._iid_, CLSCTX_ALL, None
+                )
+                volume_interface = cast(interface, POINTER(IAudioEndpointVolume))
+
+        if volume_interface is None:
+            return ("Couldn't access the Windows audio endpoint. Update pycaw and rebuild the companion.", "error")
+
         if "mute" in c or "unmute" in c:
-            mute=("mute" in c and "unmute" not in c);vol.SetMute(1 if mute else 0,None);return ("System audio muted." if mute else "System audio unmuted."),"success"
-        m=re.search(r"(\d{1,3})\s*(?:%|percent)",c);p=int(m.group(1)) if m else round(vol.GetMasterVolumeLevelScalar()*100)+(10 if any(x in c for x in ("increase","up","louder","raise")) else -10);p=max(0,min(100,p));vol.SetMasterVolumeLevelScalar(p/100,None);return f"System volume set to {p}%.","success"
-    except Exception: return "Volume control failed. Check that pycaw and comtypes are installed.","error"
+            muted = "mute" in c and "unmute" not in c
+            volume_interface.SetMute(1 if muted else 0, None)
+            return ("System audio muted." if muted else "System audio unmuted."), "success"
+
+        match = re.search(r"(\d{1,3})\s*(?:%|percent)", c)
+        if match:
+            percent = int(match.group(1))
+        else:
+            current = round(volume_interface.GetMasterVolumeLevelScalar() * 100)
+            percent = current + (10 if any(word in c for word in ("increase", "up", "louder", "raise")) else -10)
+        percent = max(0, min(100, percent))
+        volume_interface.SetMasterVolumeLevelScalar(percent / 100, None)
+        return f"System volume set to {percent}%." , "success"
+    except Exception as exc:
+        return f"Volume control failed: {type(exc).__name__}: {exc}", "error"
+
 def brightness(c):
     try:
         import screen_brightness_control as sbc
